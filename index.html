@@ -103,6 +103,16 @@ h2{margin:0 0 4px;font-size:28px;font-weight:700}
 .steps ol{margin:0;padding-left:1.3em}.steps li{margin-bottom:.4em}
 .note{font-size:13px;color:var(--dim);line-height:1.5;max-width:36ch}
 @media (prefers-reduced-motion:reduce){.tg::after{transition:none}}
+.code{font-size:54px;font-weight:700;letter-spacing:.18em;color:#fff;text-shadow:0 0 18px rgba(94,230,255,.7);padding:.1em .4em;border-radius:18px;background:rgba(94,230,255,.08);border:1px solid rgba(94,230,255,.35)}
+.joinRow{display:flex;gap:8px;align-items:center}
+.joinRow input{font:inherit;font-size:22px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;width:150px;text-align:center;padding:.45em .5em;border-radius:14px;
+  border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--ink);outline:none}
+.joinRow input:focus{border-color:var(--you)}
+.row select{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:10px;padding:.4em .5em;max-width:62%}
+.row select option{background:#1a1440;color:#fff}
+#onNote{color:#ff9aa8;min-height:1.2em;max-width:34ch}
+.or{color:var(--dim);font-size:13px;margin:4px 0}
+#online [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){#pop span,#hint{transition:none}}
 </style>
 </head>
@@ -130,6 +140,7 @@ h2{margin:0 0 4px;font-size:28px;font-weight:700}
   <div class="stack">
     <button class="primary" id="bPlay">Graj</button>
     <button id="bRandom">Losowa galaktyka</button>
+    <button id="bOnline">Graj z kolegą online</button>
     <div class="menuRow">
       <button id="bHow">Jak grać</button>
       <button id="bSettings">Ustawienia</button>
@@ -153,6 +164,30 @@ h2{margin:0 0 4px;font-size:28px;font-weight:700}
   </div>
   <div class="stack"><button class="primary" id="bRandGo">Losuj i graj</button><button id="bRandBack">Wróć</button></div>
 </section>
+
+<section id="online" class="screen shade scroll" hidden><div class="wrap">
+  <h2>Gra online</h2>
+  <div id="onMain" class="stack">
+    <p class="sub">Zagraj z kolegą, każdy na swoim telefonie. Jedna osoba tworzy pokój, druga wpisuje kod.</p>
+    <button class="primary" id="bHost">Stwórz pokój</button>
+    <div class="or">albo dołącz do kolegi</div>
+    <div class="joinRow"><input id="joinCode" maxlength="5" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod pokoju"><button id="bJoin">Dołącz</button></div>
+    <button id="bOnBack">Wróć</button>
+  </div>
+  <div id="onHost" class="stack" hidden>
+    <p class="sub">Podaj koledze ten kod:</p>
+    <div id="roomCode" class="code">·····</div>
+    <p class="sub" id="hostStatus">Łączę z serwerem…</p>
+    <div class="set"><div class="row"><span>Mapa</span><select id="mapSel" aria-label="Mapa"></select></div></div>
+    <button class="primary" id="bHostStart" disabled>Start</button>
+    <button id="bHostCancel">Anuluj</button>
+  </div>
+  <div id="onGuest" class="stack" hidden>
+    <p class="sub" id="guestStatus">Łączenie…</p>
+    <button id="bGuestCancel">Anuluj</button>
+  </div>
+  <p class="note" id="onNote"></p>
+</div></section>
 
 <section id="settings" class="screen shade scroll" hidden><div class="wrap">
   <h2>Ustawienia</h2>
@@ -412,7 +447,7 @@ function newGame(def,idx,demo){
   suns.forEach(s=>{if(s.owner>=0)for(let k=0;k<(def.u||20);k++)spawn(s,s.owner)});
 }
 function spawn(s,o){const a=Math.random()*6.2832;
-  G.units.push({x:s.x+Math.cos(a)*s.r*.5,y:s.y+Math.sin(a)*s.r*.5,o,h:s.i,st:0,tx:0,ty:0,t:-1,a,
+  G.nid=((G.nid||0)+1)&65535;G.units.push({id:G.nid,x:s.x+Math.cos(a)*s.r*.5,y:s.y+Math.sin(a)*s.r*.5,o,h:s.i,st:0,tx:0,ty:0,t:-1,a,
     or:s.r+7+Math.random()*17,w:(.45+Math.random()*.6)*(Math.random()<.5?1:-1),sel:false,cmd:false,dead:false})}
 
 function sendUnits(list,target,tsun){
@@ -426,21 +461,21 @@ function arrive(u,s){
   if(s.owner===o&&s.level>0){
     if(s.hp<hpMax(s.level)){s.hp++;u.dead=true;return}
     if(u.cmd&&s.level<s.m){s.up++;u.dead=true;
-      if(s.up>=upCost(s.level)){s.level++;s.up=0;s.hp=hpMax(s.level);s.pulse=1.8;if(o===0&&!G.demo)SFX.upgrade();burst(s.x,s.y,o,26)}
+      if(s.up>=upCost(s.level)){s.level++;s.up=0;s.hp=hpMax(s.level);s.pulse=1.8;if(o===ME&&!G.demo)SFX.upgrade();netEv(['u',o]);burst(s.x,s.y,o,26)}
       return}
     u.st=0;u.h=s.i;u.cmd=false;u.t=-1;return}
   if(s.owner<0){
     if(s.capO===-1||s.capO===o){s.capO=o;s.cap++;
       if(s.cap>=capCost(s)){s.owner=o;s.level=1;s.hp=hpMax(1);s.cap=0;s.capO=-1;s.up=0;s.pulse=1.8;burst(s.x,s.y,o,30);
-        if(!G.demo&&o===0)SFX.capture()}}
+        if(!G.demo&&o===ME)SFX.capture();netEv(['c',o])}}
     else{s.cap--;if(s.cap<=0){s.cap=0;s.capO=-1}}
     u.dead=true;return}
   s.hp--;u.dead=true;
   if(s.hp<=0){const prev=s.owner;s.owner=-1;s.level=0;s.hp=0;s.cap=0;s.capO=-1;s.up=0;s.pulse=1;G.sel.delete(s.i);
     burst(s.x,s.y,prev,40);
-    if(!G.demo){if(prev===0)SFX.lost();else if(o===0)SFX.enemyLost()}}
+    if(!G.demo){if(prev===ME)SFX.lost();else if(o===ME)SFX.enemyLost()}netEv(['l',prev,o])}
 }
-function burst(x,y,o,n){if(!SET.quality)return;for(let i=0;i<n&&G.sparks.length<500;i++){const a=Math.random()*6.283,v=rand(15,70);
+function burst(x,y,o,n){netEv(['b',x|0,y|0,o,n]);if(!SET.quality)return;for(let i=0;i<n&&G.sparks.length<500;i++){const a=Math.random()*6.283,v=rand(15,70);
   G.sparks.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,d:rand(.8,1.6),o})}}
 
 // ---------- AI ----------
@@ -469,7 +504,7 @@ function aiThink(o){
         else continue;margin=0;
       }else if(t.owner===o)continue;
       else if(t.owner<0){need=capCost(t)+(t.capO===o?-t.cap:t.cap);val=1+t.m*.7;margin=3}
-      else{need=t.hp+(def[t.i]||0)*1.15;val=1.2+t.level*.6+t.m*.3;if(t.owner===0)val*=p.pb;margin=need*.3+5}
+      else{need=t.hp+(def[t.i]||0)*1.15;val=1.2+t.level*.6+t.m*.3;if(t.owner===0||(G.online&&t.owner===1))val*=p.pb;margin=need*.3+5}
       if(n-reserve<need+margin)continue;
       const dist=Math.hypot(t.x-s.x,t.y-s.y);
       const sc=val/(need+dist*.07+10);
@@ -500,11 +535,11 @@ function update(dt){
     for(const o of g.owners){if(g.suns.some(s=>s.owner===o))continue;
       const us=g.units.filter(u=>!u.dead&&u.o===o);const k=Math.max(1,Math.ceil(us.length*.08));for(let i=0;i<k&&i<us.length;i++){us[i].dead=true;burst(us[i].x,us[i].y,o,2)}}
     if(g.beatN%8===0)nextChord();
-    const playerHas=g.suns.some(s=>s.owner===0);
+    const playerHas=g.suns.some(s=>s.owner===ME);
     if(g.demo)SFX.beat(g.beatN,true);else if(playerHas)SFX.beat(g.beatN,false);
   }
   // AI
-  for(const o of g.owners){if(o===0)continue;g.aiT[o]-=dt;if(g.aiT[o]<=0){aiThink(o);g.aiT[o]=g.ai.t*rand(.7,1.3)}}
+  for(const o of g.owners){if(o===0||(g.online&&o===1))continue;g.aiT[o]-=dt;if(g.aiT[o]<=0){aiThink(o);g.aiT[o]=g.ai.t*rand(.7,1.3)}}
   // units
   const f=Math.min(1,dt*2.6),v=SPEED*dt;
   for(const u of g.units){if(u.dead)continue;
@@ -527,7 +562,7 @@ function update(dt){
       for(const j of c){if(j<=i)continue;const w=U[j];if(w.dead||w.o===u.o)continue;
         const dx=w.x-u.x,dy=w.y-u.y;if(dx*dx+dy*dy<CR2){u.dead=w.dead=true;
           if(SET.quality&&g.sparks.length<500){g.sparks.push({x:u.x,y:u.y,vx:rand(-40,40),vy:rand(-40,40),l:1,d:rand(.5,.9),o:u.o},{x:w.x,y:w.y,vx:rand(-40,40),vy:rand(-40,40),l:1,d:rand(.5,.9),o:w.o})}
-          if(u.o===0||w.o===0)playerHit=true;break outer}}}}
+          if(u.o===ME||w.o===ME)playerHit=true;if(G.online&&(u.o===1||w.o===1))netEv(['t']);if(G.online)netEv(['b',u.x|0,u.y|0,u.o,1]);break outer}}}}
   if(playerHit&&!g.demo)SFX.tink();
   if(g.units.some(u=>u.dead))g.units=g.units.filter(u=>!u.dead);
   for(const s of g.sparks){s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=.96;s.vy*=.96;s.l-=dt/s.d}
@@ -538,6 +573,7 @@ function update(dt){
     const alive=new Set();for(const s of g.suns)if(s.owner>=0)alive.add(s.owner);for(const u of g.units)alive.add(u.o);
     g.pop=[0,0,0,0];for(const u of g.units)g.pop[u.o]++;
     if(g.demo){if(alive.size<=1&&!g.demoEnd)g.demoEnd=g.t+3;if(g.demoEnd&&g.t>g.demoEnd)newGame(DEMO,-1,true)}
+    else if(!g.over&&g.online){let w=null;if(!alive.has(0)&&!alive.has(1))w=alive.size?[...alive][0]:-1;else if(alive.size===1)w=[...alive][0];if(w!==null)hostOver(w)}
     else if(!g.over){if(!alive.has(0))finish(false);else if(alive.size===1)finish(true)}
     if(!g.demo)updatePop();
   }
@@ -622,8 +658,9 @@ function sourceSuns(){const a=new Set(G.sel);if(ptr&&ptr.mode==='send'&&ptr.sun>
 function selCount(){let n=0;for(const u of G.units)if(u.sel)n++;return n}
 function doSend(srcSuns,target,tsun){
   const frac=FRACS[fracI];let list=[];
-  for(const i of srcSuns){const us=unitsAt(i,0);list=list.concat(us.slice(0,Math.ceil(us.length*frac)))}
-  const lasso=G.units.filter(u=>u.sel&&!u.dead&&u.o===0);list=list.concat(lasso.slice(0,Math.ceil(lasso.length*frac)));
+  if(G.client){const ids=G.units.filter(u=>u.sel).map(u=>u.id);netSend({t:'c',s:srcSuns,u:ids,f:frac,x:target.x,y:target.y,k:tsun});G.units.forEach(u=>u.sel=false);G.sel.clear();SFX.send();updateSelChip();return}
+  for(const i of srcSuns){const us=unitsAt(i,ME);list=list.concat(us.slice(0,Math.ceil(us.length*frac)))}
+  const lasso=G.units.filter(u=>u.sel&&!u.dead&&u.o===ME);list=list.concat(lasso.slice(0,Math.ceil(lasso.length*frac)));
   G.units.forEach(u=>u.sel=false);G.sel.clear();
   if(list.length){sendUnits([...new Set(list)],target,tsun);SFX.send();
     if(G.hintStep===1){G.hintStep=2;G.hintT=0;setHint('Dotknij swojej gwiazdy dwa razy, żeby ją ulepszyć.')}}
@@ -637,7 +674,7 @@ cv.addEventListener('pointerdown',e=>{
 cv.addEventListener('pointermove',e=>{
   if(!ptr||e.pointerId!==ptr.id)return;ptr.w=toWorld(e.clientX,e.clientY);
   if(!ptr.drag&&Math.hypot(e.clientX-ptr.sx,e.clientY-ptr.sy)>12){ptr.drag=true;
-    ptr.mode=(ptr.sun>=0&&G.suns[ptr.sun].owner===0)?'send':'lasso'}
+    ptr.mode=(ptr.sun>=0&&G.suns[ptr.sun].owner===ME)?'send':'lasso'}
 });
 function endPtr(e,cancel){
   if(!ptr||e.pointerId!==ptr.id)return;const p=ptr;ptr=null;if(cancel||!G||G.over)return;
@@ -645,21 +682,21 @@ function endPtr(e,cancel){
   if(p.mode==='send'){const ts=hitSun(p.w);const srcs=[...new Set([...G.sel,p.sun])];
     doSend(srcs,ts>=0?G.suns[ts]:p.w,ts)}
   else{const r=Math.hypot(p.w.x-p.w0.x,p.w.y-p.w0.y);let n=0;
-    for(const u of G.units)if(u.o===0&&Math.hypot(u.x-p.w0.x,u.y-p.w0.y)<r){u.sel=true;n++}
-    for(const s of G.suns)if(s.owner===0&&Math.hypot(s.x-p.w0.x,s.y-p.w0.y)<r)G.sel.add(s.i);
+    for(const u of G.units)if(u.o===ME&&Math.hypot(u.x-p.w0.x,u.y-p.w0.y)<r){u.sel=true;n++}
+    for(const s of G.suns)if(s.owner===ME&&Math.hypot(s.x-p.w0.x,s.y-p.w0.y)<r)G.sel.add(s.i);
     if(n||G.sel.size)SFX.select();updateSelChip()}
 }
 cv.addEventListener('pointerup',e=>endPtr(e,false));
 cv.addEventListener('pointercancel',e=>endPtr(e,true));
 function tap(w,si){
   const hasSel=G.sel.size>0||G.units.some(u=>u.sel);
-  if(!hasSel){if(si>=0&&G.suns[si].owner===0){G.sel.add(si);SFX.select();updateSelChip();
+  if(!hasSel){if(si>=0&&G.suns[si].owner===ME){G.sel.add(si);SFX.select();updateSelChip();
       if(G.hintStep===0){G.hintStep=1;setHint('Teraz dotknij szarej gwiazdy, żeby wysłać tam świetliki.')}}
     return}
   doSend([...G.sel],si>=0?G.suns[si]:w,si);
 }
 function updateSelChip(){const chip=$('selChip');if(!G||G.demo){chip.hidden=true;return}
-  let n=selCount();for(const i of G.sel)n+=unitsAt(i,0).length;
+  let n=selCount();for(const i of G.sel)n+=unitsAt(i,ME).length;
   if(G.sel.size||n){chip.hidden=false;chip.textContent=`Zaznaczono ${n}  ✕`}else chip.hidden=true}
 $('selChip').addEventListener('click',()=>{if(!G)return;G.sel.clear();G.units.forEach(u=>u.sel=false);updateSelChip()});
 
@@ -674,7 +711,7 @@ $('bSpeed').addEventListener('click',()=>{speed=speed===1?2:1;$('bSpeed').textCo
 $('bSound').addEventListener('click',()=>{initAudio();setMute(!muted)});
 
 // ---------- screens ----------
-const screens=['menu','levels','how','pause','over','settings','install','random'];let setReturn='menu';
+const screens=['menu','levels','how','pause','over','settings','install','random','online'];let setReturn='menu';
 function show(id){screens.forEach(s=>$(s).hidden=s!==id)}
 function goMenu(){mode='menu';$('hud').hidden=true;hintEl.classList.remove('on');newGame(DEMO,-1,true);show('menu')}
 function goLevels(){mode='menu';$('hud').hidden=true;hintEl.classList.remove('on');if(!G||!G.demo)newGame(DEMO,-1,true);buildGrid();show('levels')}
@@ -685,7 +722,7 @@ function buildGrid(){const gEl=$('grid');gEl.innerHTML='';
     b.innerHTML=`<span class="num">${i+1}</span><span class="lbl">${L.n}<small>${done?'Rekord '+fmt(progress.best[i]):(b.disabled?'Zablokowany':'Nowy')}</small></span>`;
     b.addEventListener('click',()=>startLevel(i));gEl.appendChild(b)})}
 function startLevel(i){startGame(LEVELS[i],i)}
-function startGame(def,i){initAudio();newGame(def,i,false);mode='play';show(null);speed=SET.speed;$('bSpeed').textContent=speed+'×';
+function startGame(def,i){initAudio();if(NET.role)leaveNet();ME=0;$('bSpeed').hidden=false;$('bNext').hidden=false;$('bNext').disabled=false;newGame(def,i,false);mode='play';show(null);speed=SET.speed;$('bSpeed').textContent=speed+'×';
   $('hud').hidden=false;$('lvlName').textContent=i>=0?`${i+1}. ${def.n}`:def.n;updatePop();updateSelChip();
   hintEl.classList.remove('on');if(G.hintStep===0)setTimeout(()=>{if(G&&G.hintStep===0)setHint('Dotknij swojej świecącej gwiazdy, żeby ją zaznaczyć.')},600)}
 function finish(won){G.over=true;hintEl.classList.remove('on');const i=G.idx;
@@ -695,17 +732,18 @@ function finish(won){G.over=true;hintEl.classList.remove('on');const i=G.idx;
     else if(won){SFX.win();const best=progress.best[i];if(best==null||G.t<best)progress.best[i]=G.t;
       progress.unlocked=Math.max(progress.unlocked,Math.min(LEVELS.length,i+2));store.set('lumen-progress',progress);
       $('overTitle').textContent=i===LEVELS.length-1?'Cała galaktyka świeci twoim światłem':'Galaktyka jest twoja';
-      $('overSub').textContent=`Czas: ${fmt(G.t)}`;
+      $('overSub').textContent=`Czas: ${fmt(G.t)}`;$('bOverLevels').textContent='Poziomy';$('bNext').disabled=false;
       const last=i===LEVELS.length-1;$('bNext').textContent=last?'Zagraj jeszcze raz':'Następny poziom';
       $('bNext').onclick=()=>startLevel(last?i:i+1)}
-    else{SFX.lose();$('overTitle').textContent='Twoje światło zgasło';$('overSub').textContent='Spróbuj innej strategii: najpierw przejmuj bliskie gwiazdy i ulepszaj swoje.';
+    else{SFX.lose();$('bOverLevels').textContent='Poziomy';$('bNext').disabled=false;$('overTitle').textContent='Twoje światło zgasło';$('overSub').textContent='Spróbuj innej strategii: najpierw przejmuj bliskie gwiazdy i ulepszaj swoje.';
       $('bNext').textContent='Spróbuj ponownie';const d=G.def;$('bNext').onclick=()=>startGame(d,i)}
     show('over')},900)}
 $('bPlay').addEventListener('click',()=>{initAudio();goLevels()});
 $('bHow').addEventListener('click',()=>{initAudio();show('how')});
 $('bHowBack').addEventListener('click',()=>show('menu'));
 $('bBackMenu').addEventListener('click',()=>show('menu'));
-$('bPause').addEventListener('click',()=>{if(G&&!G.over){G.paused=true;show('pause')}});
+$('bPause').addEventListener('click',()=>{if(!G||G.over)return;const on=!!G.online;$('bRestart').hidden=on;$('bPauseSet').hidden=on;$('bResume').textContent=on?'Wróć do gry':'Wznów';
+  $('bToLevels').textContent=on?'Wyjdź z gry':'Poziomy';if(!on)G.paused=true;show('pause')});
 $('bResume').addEventListener('click',()=>{G.paused=false;show(null)});
 $('bRestart').addEventListener('click',()=>startGame(G.def,G.idx));
 $('bPauseSet').addEventListener('click',()=>openSettings('pause'));
@@ -763,16 +801,109 @@ $('bInstall').addEventListener('click',async()=>{if(deferredPrompt){try{deferred
   const man={name:'Lumen',short_name:'Lumen',start_url:location.href,scope:location.href.replace(/[^/]*$/,''),display:'standalone',orientation:'any',
     background_color:'#0b0824',theme_color:'#0b0824',icons:[{src:url,sizes:'512x512',type:'image/png',purpose:'any'}]};
   $('manifest').href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(man))}catch(e){}})();
-$('bToLevels').addEventListener('click',goLevels);
-$('bOverLevels').addEventListener('click',goLevels);
+$('bToLevels').addEventListener('click',()=>{if(G&&G.online){leaveNet();goMenu()}else goLevels()});
+$('bOverLevels').addEventListener('click',()=>{if(G&&G.online){leaveNet();goMenu()}else goLevels()});
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){if(AC)AC.suspend();if(mode==='play'&&G&&!G.over&&!G.paused){G.paused=true;show('pause')}}
+  if(document.hidden){if(AC)AC.suspend();if(mode==='play'&&G&&!G.over&&!G.paused&&!G.online){G.paused=true;show('pause')}}
   else if(AC)AC.resume()});
+
+// ---------- online ----------
+let ME=0;const NET={role:null,peer:null,conn:null,lastSnap:0,events:[],sendT:0,map:new Map()};
+const PEER_URL='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+const PEEROPTS=window.__PEEROPTS||{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
+const OFFMSG='Nie udało się połączyć z serwerem gry. Tryb online działa w wersji Lumena z GitHuba i potrzebuje internetu.';
+const CODECH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function netEv(e){if(G&&G.online&&NET.role==='host'&&NET.events.length<160)NET.events.push(e)}
+function netSend(m){try{if(NET.conn&&NET.conn.open)NET.conn.send(m)}catch(e){}}
+function loadPeer(){return new Promise((res,rej)=>{if(window.Peer)return res();const sc=document.createElement('script');sc.src=PEER_URL;sc.onload=()=>window.Peer?res():rej();sc.onerror=()=>rej();document.head.appendChild(sc)})}
+function onPanel(p){$('onMain').hidden=p!=='main';$('onHost').hidden=p!=='host';$('onGuest').hidden=p!=='guest'}
+function onNote(t){$('onNote').textContent=t||''}
+function errMsg(e){const t=e&&e.type;if(t==='peer-unavailable')return'Nie ma pokoju z takim kodem. Sprawdź kod.';if(t==='browser-incompatible')return'Ta przeglądarka nie obsługuje gry online.';return OFFMSG}
+function fillMaps(){const sel=$('mapSel');if(sel.options.length)return;
+  LEVELS.forEach((L,i)=>{const n=new Set(L.s.filter(d=>d[2]>=0).map(d=>d[2])).size;const o=document.createElement('option');o.value='L'+i;o.textContent=`${i+1}. ${L.n}${n>2?` (+${n-2} komputer${n-2>1?'y':''})`:''}`;sel.appendChild(o)});
+  for(const k of [1,2,3]){const o=document.createElement('option');o.value='R'+k;o.textContent=k===1?'Losowa galaktyka (pojedynek)':`Losowa galaktyka (+${k-1} komputer${k-1>1?'y':''})`;sel.appendChild(o)}}
+async function hostRoom(){onNote('');try{await loadPeer()}catch(e){onNote(OFFMSG);return}leaveNet();fillMaps();onPanel('host');$('bHostStart').disabled=true;$('hostStatus').textContent='Łączę z serwerem…';
+  const code=Array.from({length:5},()=>CODECH[(Math.random()*CODECH.length)|0]).join('');$('roomCode').textContent=code;
+  let peer;try{peer=new Peer('lumen-mp-'+code.toLowerCase(),PEEROPTS)}catch(e){onNote(OFFMSG);return}NET.peer=peer;NET.role='host';
+  peer.on('open',()=>{$('hostStatus').textContent='Czekam, aż kolega wpisze kod…'});
+  peer.on('error',e=>{if(e.type==='unavailable-id'){hostRoom();return}if(!NET.conn)onNote(errMsg(e))});
+  peer.on('connection',conn=>{if(NET.conn&&NET.conn.open){conn.on('open',()=>conn.close());return}NET.conn=conn;
+    conn.on('open',()=>{$('hostStatus').textContent='Kolega dołączył! Wybierz mapę i naciśnij Start.';$('bHostStart').disabled=false;onNote('');SFX.capture();buzz(30)});
+    conn.on('data',onData);conn.on('close',onClose)})}
+async function joinRoom(){onNote('');const code=$('joinCode').value.trim().toUpperCase();if(code.length!==5){onNote('Kod ma 5 znaków.');return}
+  try{await loadPeer()}catch(e){onNote(OFFMSG);return}leaveNet();onPanel('guest');$('guestStatus').textContent='Łączenie…';
+  let peer;try{peer=new Peer(undefined,PEEROPTS)}catch(e){onNote(OFFMSG);onPanel('main');return}NET.peer=peer;NET.role='guest';
+  peer.on('open',()=>{const conn=peer.connect('lumen-mp-'+code.toLowerCase(),{reliable:true});NET.conn=conn;
+    conn.on('open',()=>{$('guestStatus').textContent='Połączono! Czekam, aż gospodarz wystartuje grę.';onNote('');SFX.capture();buzz(30)});
+    conn.on('data',onData);conn.on('close',onClose);
+    setTimeout(()=>{if(NET.conn===conn&&!conn.open){onNote('Nie udało się połączyć. Sprawdź kod i spróbuj jeszcze raz.');onPanel('main')}},12000)});
+  peer.on('error',e=>{onNote(errMsg(e));onPanel('main')})}
+function leaveNet(){const c=NET.conn,p=NET.peer;NET.conn=null;NET.peer=null;NET.role=null;ME=0;try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}}
+function onClose(){if(!NET.role)return;const was=NET.role;
+  if(mode==='play'&&G&&G.online&&!G.over){G.over=true;$('overTitle').textContent='Połączenie przerwane';$('overSub').textContent='Kolega się rozłączył albo stracił internet.';
+    $('bNext').hidden=true;$('bOverLevels').textContent='Wyjdź';hintEl.classList.remove('on');show('over')}
+  else if(!$('online').hidden){onNote('Połączenie przerwane.');if(was==='host'){$('bHostStart').disabled=true;$('hostStatus').textContent='Czekam, aż kolega wpisze kod…';NET.conn=null;return}onPanel('main')}
+  leaveNet()}
+function defFromSel(){const v=$('mapSel').value;if(v[0]==='L'){const i=+v.slice(1);return{def:JSON.parse(JSON.stringify(LEVELS[i])),idx:i}}
+  const k=+v.slice(1);return{def:genRandom(k,1),idx:-2}}
+function hostStart(def,idx){netSend({t:'start',def,idx});startOnline(def,idx)}
+$('bOnline').addEventListener('click',()=>{initAudio();onPanel('main');onNote('');show('online')});
+$('bOnBack').addEventListener('click',()=>{leaveNet();show('menu')});
+$('bHost').addEventListener('click',hostRoom);
+$('bJoin').addEventListener('click',joinRoom);
+$('joinCode').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom()});
+$('bHostCancel').addEventListener('click',()=>{leaveNet();onPanel('main')});
+$('bGuestCancel').addEventListener('click',()=>{leaveNet();onPanel('main')});
+$('bHostStart').addEventListener('click',()=>{if(!NET.conn||!NET.conn.open)return;const {def,idx}=defFromSel();hostStart(def,idx)});
+function startOnline(def,idx){initAudio();ME=NET.role==='guest'?1:0;newGame(def,idx,false);G.online=true;G.hintStep=-1;speed=1;
+  if(ME===1){G.client=true;G.units=[];NET.map=new Map();NET.lastSnap=performance.now()}NET.events=[];NET.sendT=0;
+  mode='play';show(null);$('hud').hidden=false;$('bSpeed').hidden=true;$('bNext').hidden=false;
+  $('lvlName').textContent='Online: '+(idx>=0?`${idx+1}. ${def.n}`:def.n);updatePop();updateSelChip();
+  hintEl.innerHTML=`Twój kolor: <b style="color:${COL[ME]};font-size:20px">●</b> ${ME===0?'Zaczynasz na swojej gwieździe.':'Kolega gra drugim kolorem.'}`;hintEl.classList.add('on');
+  setTimeout(()=>{if(G&&G.online&&!G.over)hintEl.classList.remove('on')},4500)}
+function sendSnap(){const g=G;const n=g.units.length,buf=new ArrayBuffer(n*8),dv=new DataView(buf);
+  for(let i=0;i<n;i++){const u=g.units[i],o=i*8;dv.setUint16(o,u.id);dv.setUint16(o+2,Math.max(0,Math.min(65535,Math.round((u.x+200)*8))));dv.setUint16(o+4,Math.max(0,Math.min(65535,Math.round((u.y+200)*8))));
+    dv.setUint8(o+6,(u.o&3)|((u.st&3)<<2));dv.setUint8(o+7,u.h+1)}
+  const S=[];for(const s of g.suns)S.push(s.owner,s.level,s.hp|0,s.cap,s.capO,s.up,Math.round(s.pulse*50));
+  netSend({t:'s',s:S,u:buf,e:NET.events.splice(0)})}
+function onData(d){if(!d||typeof d!=='object')return;
+  if(d.t==='start'&&NET.role==='guest'){startOnline(d.def,d.idx);return}
+  if(d.t==='c'&&NET.role==='host'&&G&&G.online&&!G.over){execCmd(1,d.s||[],d.u||[],+d.f||1,{x:+d.x,y:+d.y},d.k|0);return}
+  if(d.t==='s'&&G&&G.client)applySnap(d);
+  if(d.t==='over'&&G&&G.client&&!G.over)showOnlineOver(d.w)}
+function execCmd(owner,srcSuns,ids,frac,target,tsun){let list=[];
+  for(const i of srcSuns){if(!G.suns[i])continue;const us=unitsAt(i,owner);list=list.concat(us.slice(0,Math.ceil(us.length*frac)))}
+  if(ids.length){const set=new Set(ids);const ls=G.units.filter(u=>!u.dead&&u.o===owner&&set.has(u.id));list=list.concat(ls.slice(0,Math.ceil(ls.length*frac)))}
+  if(tsun>=G.suns.length)tsun=-1;if(list.length)sendUnits([...new Set(list)],tsun>=0?G.suns[tsun]:target,tsun)}
+function applySnap(d){const g=G;NET.lastSnap=performance.now();const S=d.s||[];
+  g.suns.forEach((s,i)=>{const k=i*7;if(k+6>=S.length)return;s.owner=S[k];s.level=S[k+1];s.hp=S[k+2];s.cap=S[k+3];s.capO=S[k+4];s.up=S[k+5];s.pulse=Math.max(s.pulse,S[k+6]/50);if(s.owner!==ME)g.sel.delete(i)});
+  let buf=d.u;if(buf&&!(buf instanceof ArrayBuffer)&&buf.buffer)buf=buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength);
+  const list=[];if(buf){const dv=new DataView(buf),n=buf.byteLength/8|0;const gen=(NET.gen=(NET.gen||0)+1);
+    for(let i=0;i<n;i++){const o=i*8,id=dv.getUint16(o),x=dv.getUint16(o+2)/8-200,y=dv.getUint16(o+4)/8-200,b=dv.getUint8(o+6),h=dv.getUint8(o+7)-1;
+      let u=NET.map.get(id);if(!u){u={id,x,y,tx:x,ty:y,sel:false};NET.map.set(id,u)}u.tx=x;u.ty=y;u.o=b&3;u.st=b>>2&3;u.h=h;u.g=gen;list.push(u)}
+    for(const [id,u] of NET.map)if(u.g!==gen)NET.map.delete(id)}
+  g.units=list;g.pop=[0,0,0,0];for(const u of list)g.pop[u.o]++;
+  for(const e of d.e||[]){const k=e[0];if(k==='b')burst(e[1],e[2],e[3],e[4]);else if(k==='c'){if(e[1]===ME)SFX.capture()}else if(k==='u'){if(e[1]===ME)SFX.upgrade()}
+    else if(k==='l'){if(e[1]===ME)SFX.lost();else if(e[2]===ME)SFX.enemyLost()}else if(k==='t')SFX.tink()}
+  if((NET.popT=(NET.popT||0)+1)%3===0){updatePop();updateSelChip()}}
+function clientTick(dt){const g=G;g.t+=dt;const f=Math.min(1,dt*12);for(const u of g.units){u.x+=(u.tx-u.x)*f;u.y+=(u.ty-u.y)*f}
+  for(const s of g.sparks){s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=.96;s.vy*=.96;s.l-=dt/s.d}g.sparks=g.sparks.filter(s=>s.l>0);
+  for(const s of g.suns)s.pulse=Math.max(0,s.pulse-dt*2.2);
+  g.beatT+=dt;if(g.beatT>=BEAT){g.beatT-=BEAT;g.beatN++;if(g.beatN%8===0)nextChord();if(g.suns.some(s=>s.owner===ME))SFX.beat(g.beatN,false)}
+  if(!g.over){const late=performance.now()-NET.lastSnap>3000;if(late&&!NET.lateShown){NET.lateShown=true;hintEl.textContent='Czekam na gospodarza… Jeśli ma zminimalizowaną grę, poproś, żeby wrócił.';hintEl.classList.add('on')}
+    else if(!late&&NET.lateShown){NET.lateShown=false;hintEl.classList.remove('on')}}}
+function hostOver(w){G.over=true;netSend({t:'over',w});showOnlineOver(w)}
+function showOnlineOver(w){G.over=true;hintEl.classList.remove('on');setTimeout(()=>{
+  const other=ME===0?1:0;if(w===ME){SFX.win();$('overTitle').textContent='Wygrana!'}else{SFX.lose();$('overTitle').textContent=w===other?'Kolega wygrał':'Komputer was pokonał'}
+  $('overSub').textContent=`Czas gry: ${fmt(G.t)}`;$('bOverLevels').textContent='Wyjdź';$('bNext').hidden=false;
+  if(NET.role==='host'){$('bNext').disabled=false;$('bNext').textContent='Rewanż';const d=G.def,i=G.idx;$('bNext').onclick=()=>{if(NET.conn&&NET.conn.open)hostStart(d.random?genRandom(d.random.e,d.random.s):d,i)}}
+  else{$('bNext').disabled=true;$('bNext').textContent='Czekam na rewanż…';$('bNext').onclick=null}
+  show('over')},900)}
 
 // ---------- loop ----------
 let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
-  if(G&&!G.paused){const steps=mode==='play'?speed:1;for(let i=0;i<steps;i++)update(dt)}
+  if(G&&G.client)clientTick(dt);else if(G&&!G.paused){const steps=mode==='play'&&!G.online?speed:1;for(let i=0;i<steps;i++)update(dt);if(G.online&&NET.role==='host'){NET.sendT+=dt;if(NET.sendT>=.1){NET.sendT=0;sendSnap()}}}
   render();requestAnimationFrame(loop)}
 addEventListener('resize',layout);
 layout();setMute(muted);goMenu();requestAnimationFrame(loop);
