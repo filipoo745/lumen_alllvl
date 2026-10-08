@@ -825,7 +825,7 @@ document.addEventListener('visibilitychange',()=>{
 // ---------- online ----------
 let ME=0;const NET={role:null,peer:null,conn:null,lastSnap:0,events:[],sendT:0,map:new Map()};
 const PEER_URL='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
-const PEEROPTS=window.__PEEROPTS||{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
+const PEEROPTS=window.__PEEROPTS||{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'}]}};
 const OFFMSG='Nie udało się połączyć z serwerem gry. Tryb online działa w wersji Lumena z GitHuba i potrzebuje internetu.';
 const CODECH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 let ntT=0;function netToast(m){hintEl.textContent=m;hintEl.classList.add('on');clearTimeout(ntT);ntT=setTimeout(()=>hintEl.classList.remove('on'),2500)}
@@ -852,7 +852,8 @@ async function joinRoom(){onNote('');const code=$('joinCode').value.trim().toUpp
   peer.on('open',()=>{const conn=peer.connect('lumen-mp-'+code.toLowerCase(),{reliable:true});NET.conn=conn;
     conn.on('open',()=>{$('guestStatus').textContent='Połączono! Czekam, aż gospodarz wystartuje grę.';onNote('');SFX.capture();buzz(30)});
     conn.on('data',onData);conn.on('close',onClose);
-    setTimeout(()=>{if(NET.conn===conn&&!conn.open){onNote('Nie udało się połączyć. Sprawdź kod i spróbuj jeszcze raz.');onPanel('main')}},12000)});
+    setTimeout(()=>{if(NET.conn===conn&&!conn.open)$('guestStatus').textContent='Szukam drogi do kolegi… to może potrwać kilkanaście sekund.'},5000);
+    setTimeout(()=>{if(NET.conn===conn&&!conn.open){onNote('Nie udało się połączyć. Sprawdź kod. Jeśli jest dobry, któryś z was niech przełączy się na inną sieć, na przykład z danych na Wi-Fi.');leaveNet();onPanel('main')}},25000)});
   peer.on('error',e=>{onNote(errMsg(e));onPanel('main')})}
 function leaveNet(){const c=NET.conn,p=NET.peer;NET.conn=null;NET.peer=null;NET.role=null;ME=0;try{c&&c.close()}catch(e){}try{p&&p.destroy()}catch(e){}}
 function onClose(){if(!NET.role)return;const was=NET.role;
