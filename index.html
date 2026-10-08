@@ -203,6 +203,7 @@ h2{margin:0 0 4px;font-size:28px;font-weight:700}
     <div class="row"><span>Trudność</span><div class="seg" id="sDiff"><button data-v="0">Łatwy</button><button data-v="1">Normalny</button><button data-v="2">Trudny</button></div></div>
     <div class="row"><span>Twój kolor</span><div class="sw" id="sColor"></div></div>
     <div class="row"><span>Grafika</span><div class="seg" id="sQual"><button data-v="0">Oszczędna</button><button data-v="1">Pełna</button></div></div>
+    <div class="row"><span>Limit świetlików<small style="display:block;font-size:11px;color:var(--dim);margin-top:2px">na gracza; większy może przycinać na słabszym telefonie</small></span><div class="seg" id="sCap"><button data-v="300">300</button><button data-v="500">500</button><button data-v="1000">1000</button><button data-v="0">Bez limitu</button></div></div>
     <div class="row"><span>Prędkość na start</span><div class="seg" id="sSpeed"><button data-v="1">1×</button><button data-v="2">2×</button></div></div>
     <label class="row"><span>Liczba świetlików przy gwiazdach</span><input type="checkbox" class="tg" id="sCounts"></label>
     <label class="row"><span>Podpowiedzi na początku</span><input type="checkbox" class="tg" id="sHints"></label>
@@ -264,7 +265,7 @@ const store={
 };
 let progress=store.get('lumen-progress',{unlocked:1,best:{}});
 let muted=store.get('lumen-mute',false);
-const DEF_SET={music:70,sfx:80,diff:1,color:0,quality:1,vibe:true,hints:true,speed:1,counts:false,rE:2,rS:1,mpMode:1,mpBots:2,mpSize:2,mpDiff:1};
+const DEF_SET={music:70,sfx:80,diff:1,color:0,quality:1,vibe:true,hints:true,speed:1,counts:false,rE:2,rS:1,mpMode:1,mpBots:2,mpSize:2,mpDiff:1,capL:300};
 let SET=Object.assign({},DEF_SET,store.get('lumen-settings',{}));
 const saveSet=()=>store.set('lumen-settings',SET);
 const buzz=p=>{if(SET.vibe&&navigator.vibrate){try{navigator.vibrate(p)}catch(e){}}};
@@ -276,7 +277,7 @@ const PAL=['#5ee6ff','#ff6fae','#ffc24d','#a6ff7a','#b892ff','#ff8f5e'];
 let COL=PAL.slice();
 const NEU='#9690c2';
 const BEAT=1.25, SPEED=52, CR=6, CR2=CR*CR;
-const capN=()=>SET.quality?300:170;
+const capN=()=>SET.capL===0?4000:(SET.capL||300);
 const FRACS=[1,.5,.25];
 const hpMax=l=>20+20*l;
 const upCost=l=>10+30*l;
@@ -772,7 +773,7 @@ $('bInstBack').addEventListener('click',()=>show('menu'));
 function bindSeg(id,key,after){const el=$(id);
   const upd=()=>el.querySelectorAll('button').forEach(b=>{const on=+b.dataset.v===SET[key];b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
   el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;SET[key]=+b.dataset.v;saveSet();upd();SFX.select();after&&after()});upd()}
-bindSeg('sDiff','diff');bindSeg('sQual','quality');bindSeg('sSpeed','speed');bindSeg('rEnemies','rE');bindSeg('rSize','rS');
+bindSeg('sDiff','diff');bindSeg('sQual','quality');bindSeg('sSpeed','speed');bindSeg('rEnemies','rE');bindSeg('sCap','capL');bindSeg('rSize','rS');
 const sw=$('sColor');PAL.forEach((c,i)=>{const b=document.createElement('button');b.style.background=c;b.style.setProperty('--c',c);
   b.setAttribute('aria-label','Kolor '+(i+1));b.addEventListener('click',()=>{SET.color=i;saveSet();rebuildColors();updSw();if(G&&!G.demo)updatePop();SFX.select()});sw.appendChild(b)});
 function updSw(){[...sw.children].forEach((b,i)=>b.classList.toggle('on',i===SET.color))}updSw();
