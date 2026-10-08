@@ -722,7 +722,7 @@ let hintEl=$('hint');
 function setHint(t){hintEl.textContent=t;hintEl.classList.add('on')}
 function tickHint(dt){if(G.hintStep===2){G.hintT+=dt;if(G.hintT>9){G.hintStep=-1;hintEl.classList.remove('on')}}}
 $('bFrac').addEventListener('click',()=>{fracI=(fracI+1)%3;$('bFrac').textContent=FRACS[fracI]*100+'%';SFX.select()});
-$('bSpeed').addEventListener('click',()=>{speed=speed===1?2:1;$('bSpeed').textContent=speed+'×'});
+$('bSpeed').addEventListener('click',()=>{if(G&&G.client){netSend({t:'sp'});SFX.select();return}speed=speed===1?2:1;$('bSpeed').textContent=speed+'×';if(G&&G.online)netSend({t:'spd',v:speed})});
 $('bSound').addEventListener('click',()=>{initAudio();setMute(!muted)});
 
 // ---------- screens ----------
@@ -828,6 +828,7 @@ const PEER_URL='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 const PEEROPTS=window.__PEEROPTS||{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
 const OFFMSG='Nie udało się połączyć z serwerem gry. Tryb online działa w wersji Lumena z GitHuba i potrzebuje internetu.';
 const CODECH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+let ntT=0;function netToast(m){hintEl.textContent=m;hintEl.classList.add('on');clearTimeout(ntT);ntT=setTimeout(()=>hintEl.classList.remove('on'),2500)}
 function netEv(e){if(G&&G.online&&NET.role==='host'&&NET.events.length<160)NET.events.push(e)}
 function netSend(m){try{if(NET.conn&&NET.conn.open)NET.conn.send(m)}catch(e){}}
 function loadPeer(){return new Promise((res,rej)=>{if(window.Peer)return res();const sc=document.createElement('script');sc.src=PEER_URL;sc.onload=()=>window.Peer?res():rej();sc.onerror=()=>rej();document.head.appendChild(sc)})}
@@ -875,7 +876,7 @@ $('bGuestCancel').addEventListener('click',()=>{leaveNet();onPanel('main')});
 $('bHostStart').addEventListener('click',()=>{if(!NET.conn||!NET.conn.open)return;const {def,idx}=defFromSel();hostStart(def,idx)});
 function startOnline(def,idx){initAudio();ME=NET.role==='guest'?1:0;newGame(def,idx,false);G.online=true;G.hintStep=-1;speed=1;
   if(ME===1){G.client=true;G.units=[];NET.map=new Map();NET.lastSnap=performance.now()}NET.events=[];NET.sendT=0;
-  mode='play';show(null);$('hud').hidden=false;$('bSpeed').hidden=true;$('bNext').hidden=false;
+  mode='play';show(null);$('hud').hidden=false;$('bSpeed').hidden=false;$('bSpeed').textContent='1×';$('bNext').hidden=false;
   $('lvlName').textContent='Online: '+(idx>=0?`${idx+1}. ${def.n}`:def.n);updatePop();updateSelChip();
   hintEl.innerHTML=`Twój kolor: <b style="color:${COL[ME]};font-size:20px">●</b> ${G.coop?`Kolega: <b style="color:${COL[ME===0?1:0]};font-size:20px">●</b> Gracie razem przeciw botom.`:(ME===0?'Zaczynasz na swojej gwieździe.':'Kolega gra drugim kolorem.')}`;hintEl.classList.add('on');
   setTimeout(()=>{if(G&&G.online&&!G.over)hintEl.classList.remove('on')},4500)}
@@ -886,6 +887,8 @@ function sendSnap(){const g=G;const n=g.units.length,buf=new ArrayBuffer(n*8),dv
   netSend({t:'s',s:S,u:buf,e:NET.events.splice(0)})}
 function onData(d){if(!d||typeof d!=='object')return;
   if(d.t==='start'&&NET.role==='guest'){startOnline(d.def,d.idx);return}
+  if(d.t==='sp'&&NET.role==='host'&&G&&G.online){speed=speed===1?2:1;$('bSpeed').textContent=speed+'×';netSend({t:'spd',v:speed});netToast(`Kolega zmienił prędkość na ${speed}×`);return}
+  if(d.t==='spd'&&G&&G.client){const v=d.v===2?2:1;if(v!==speed){speed=v;$('bSpeed').textContent=v+'×';netToast(`Prędkość gry: ${v}×`)}return}
   if(d.t==='c'&&NET.role==='host'&&G&&G.online&&!G.over){execCmd(1,d.s||[],d.u||[],+d.f||1,{x:+d.x,y:+d.y},d.k|0);return}
   if(d.t==='s'&&G&&G.client)applySnap(d);
   if(d.t==='over'&&G&&G.client&&!G.over)showOnlineOver(d.w)}
@@ -907,7 +910,7 @@ function applySnap(d){const g=G;NET.lastSnap=performance.now();const S=d.s||[];
 function clientTick(dt){const g=G;g.t+=dt;const f=Math.min(1,dt*12);for(const u of g.units){u.x+=(u.tx-u.x)*f;u.y+=(u.ty-u.y)*f}
   for(const s of g.sparks){s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=.96;s.vy*=.96;s.l-=dt/s.d}g.sparks=g.sparks.filter(s=>s.l>0);
   for(const s of g.suns)s.pulse=Math.max(0,s.pulse-dt*2.2);
-  g.beatT+=dt;if(g.beatT>=BEAT){g.beatT-=BEAT;g.beatN++;if(g.beatN%8===0)nextChord();if(g.suns.some(s=>s.owner===ME))SFX.beat(g.beatN,false)}
+  g.beatT+=dt*speed;if(g.beatT>=BEAT){g.beatT-=BEAT;g.beatN++;if(g.beatN%8===0)nextChord();if(g.suns.some(s=>s.owner===ME))SFX.beat(g.beatN,false)}
   if(!g.over){const late=performance.now()-NET.lastSnap>3000;if(late&&!NET.lateShown){NET.lateShown=true;hintEl.textContent='Czekam na gospodarza… Jeśli ma zminimalizowaną grę, poproś, żeby wrócił.';hintEl.classList.add('on')}
     else if(!late&&NET.lateShown){NET.lateShown=false;hintEl.classList.remove('on')}}}
 function hostOver(w){G.over=true;netSend({t:'over',w});showOnlineOver(w)}
@@ -922,7 +925,7 @@ function showOnlineOver(w){G.over=true;hintEl.classList.remove('on');setTimeout(
 // ---------- loop ----------
 let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
-  if(G&&G.client)clientTick(dt);else if(G&&!G.paused){const steps=mode==='play'&&!G.online?speed:1;for(let i=0;i<steps;i++)update(dt);if(G.online&&NET.role==='host'){NET.sendT+=dt;if(NET.sendT>=.1){NET.sendT=0;sendSnap()}}}
+  if(G&&G.client)clientTick(dt);else if(G&&!G.paused){const steps=mode==='play'&&!G.client?speed:1;for(let i=0;i<steps;i++)update(dt);if(G.online&&NET.role==='host'){NET.sendT+=dt;if(NET.sendT>=.1){NET.sendT=0;sendSnap()}}}
   render();requestAnimationFrame(loop)}
 addEventListener('resize',layout);
 layout();setMute(muted);goMenu();requestAnimationFrame(loop);
