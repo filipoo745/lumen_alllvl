@@ -159,8 +159,8 @@ h2{margin:0 0 4px;font-size:28px;font-weight:700}
   <h2>Losowa galaktyka</h2>
   <p class="sub">Za każdym razem nowa mapa.</p>
   <div class="set">
-    <div class="row"><span>Przeciwnicy</span><div class="seg" id="rEnemies"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button></div></div>
-    <div class="row"><span>Wielkość</span><div class="seg" id="rSize"><button data-v="0">Mała</button><button data-v="1">Średnia</button><button data-v="2">Duża</button></div></div>
+    <div class="row"><span>Przeciwnicy</span><div class="seg" id="rEnemies"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div></div>
+    <div class="row"><span>Wielkość</span><div class="seg" id="rSize"><button data-v="0">Mała</button><button data-v="1">Średnia</button><button data-v="2">Duża</button><button data-v="3">Ogromna</button></div></div>
   </div>
   <div class="stack"><button class="primary" id="bRandGo">Losuj i graj</button><button id="bRandBack">Wróć</button></div>
 </section>
@@ -178,7 +178,13 @@ h2{margin:0 0 4px;font-size:28px;font-weight:700}
     <p class="sub">Podaj koledze ten kod:</p>
     <div id="roomCode" class="code">·····</div>
     <p class="sub" id="hostStatus">Łączę z serwerem…</p>
-    <div class="set"><div class="row"><span>Mapa</span><select id="mapSel" aria-label="Mapa"></select></div></div>
+    <div class="set">
+      <div class="row"><span>Tryb</span><div class="seg" id="mpMode"><button data-v="0">Przeciw sobie</button><button data-v="1">Razem na boty</button></div></div>
+      <div class="row" id="rowMap"><span>Mapa</span><select id="mapSel" aria-label="Mapa"></select></div>
+      <div class="row" id="rowBots"><span>Boty</span><div class="seg" id="mpBots"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button></div></div>
+      <div class="row" id="rowSize"><span>Mapa</span><div class="seg" id="mpSize"><button data-v="1">Średnia</button><button data-v="2">Duża</button><button data-v="3">Ogromna</button></div></div>
+      <div class="row" id="rowDiff"><span>Boty są</span><div class="seg" id="mpDiff"><button data-v="0">Łatwe</button><button data-v="1">Normalne</button><button data-v="2">Trudne</button></div></div>
+    </div>
     <button class="primary" id="bHostStart" disabled>Start</button>
     <button id="bHostCancel">Anuluj</button>
   </div>
@@ -258,16 +264,16 @@ const store={
 };
 let progress=store.get('lumen-progress',{unlocked:1,best:{}});
 let muted=store.get('lumen-mute',false);
-const DEF_SET={music:70,sfx:80,diff:1,color:0,quality:1,vibe:true,hints:true,speed:1,counts:false,rE:2,rS:1};
+const DEF_SET={music:70,sfx:80,diff:1,color:0,quality:1,vibe:true,hints:true,speed:1,counts:false,rE:2,rS:1,mpMode:1,mpBots:2,mpSize:2,mpDiff:1};
 let SET=Object.assign({},DEF_SET,store.get('lumen-settings',{}));
 const saveSet=()=>store.set('lumen-settings',SET);
 const buzz=p=>{if(SET.vibe&&navigator.vibrate){try{navigator.vibrate(p)}catch(e){}}};
 const DIFF=[{t:1.45,a:.78,pb:.85},{t:1,a:1,pb:1},{t:.72,a:1.15,pb:1.15}];
 
 // ---------- constants ----------
-const WX=500, WY=860;
+let WX=500, WY=860;
 const PAL=['#5ee6ff','#ff6fae','#ffc24d','#a6ff7a','#b892ff','#ff8f5e'];
-let COL=PAL.slice(0,4);
+let COL=PAL.slice();
 const NEU='#9690c2';
 const BEAT=1.25, SPEED=52, CR=6, CR2=CR*CR;
 const capN=()=>SET.quality?300:170;
@@ -292,12 +298,14 @@ function web(){const a=[[.5,.5,-1,3]];for(let i=0;i<8;i++){const t=Math.PI/2+i/8
   for(let i=0;i<6;i++){const t=i/6*Math.PI*2;a.push([.5+Math.cos(t)*.2,.5+Math.sin(t)*.2,-1,1])}return a}
 function eclipse(){const a=[[.5,.5,-1,3]];for(let i=0;i<6;i++){const t=i/6*Math.PI*2+Math.PI/6;a.push([.5+Math.cos(t)*.22,.5+Math.sin(t)*.16,-1,1])}
   a.push([.12,.9,0,2,1],[.12,.1,1,2,1],[.88,.1,2,2,1],[.88,.9,3,2,1],[.5,.1,-1,2],[.5,.9,-1,2],[.1,.5,-1,2],[.9,.5,-1,2]);return a}
-function genRandom(nE,size){
-  const starts={1:[[.5,.9],[.5,.1]],2:[[.5,.9],[.12,.12],[.88,.12]],3:[[.5,.9],[.1,.42],[.5,.08],[.9,.42]]}[nE];
-  const s=starts.map((p,i)=>[p[0],p[1],i,2,1]);const want=s.length+[7,11,16][size];let tries=0;
-  while(s.length<want&&tries++<4000){const x=rand(.07,.93),y=rand(.06,.94),r=Math.random(),m=r<.58?1:r<.88?2:3;
-    if(s.every(q=>Math.hypot((q[0]-x)*WX,(q[1]-y)*WY)>=12+7*q[3]+12+7*m+30))s.push([x,y,-1,m])}
-  return{n:'Losowa galaktyka',ai:{t:3.6,a:.72,pb:1},s,random:{e:nE,s:size}}}
+function genRandom(nE,size,coop){
+  const P=coop?2+nE:1+nE,sc=[1,1,1.25,1.5][size]||1,W0=500*sc,H0=860*sc;
+  const st=Math.PI*2/P,a0=Math.PI/2-(coop?st/2:0),s=[];
+  for(let k=0;k<P;k++){const a=a0+k*st;s.push([.5+Math.cos(a)*.39,.5+Math.sin(a)*.41,k,2,1])}
+  const want=s.length+[7,11,18,27][size];let tries=0;
+  while(s.length<want&&tries++<8000){const x=rand(.06,.94),y=rand(.05,.95),r=Math.random(),m=r<.58?1:r<.88?2:3;
+    if(s.every(q=>Math.hypot((q[0]-x)*W0,(q[1]-y)*H0)>=12+7*q[3]+12+7*m+30))s.push([x,y,-1,m])}
+  return{n:coop?'Razem przeciw botom':'Losowa galaktyka',ai:{t:3.6,a:.72,pb:1},s,wsc:sc,coop:!!coop,random:{e:nE,s:size,c:!!coop}}}
 const LEVELS=[
  {n:'Pierwsze światło',ai:{t:6,a:.4,pb:1},hint:true,s:[[.5,.88,0,2,1],[.5,.12,1,2,1],[.22,.68,-1,1],[.78,.68,-1,1],[.22,.32,-1,1],[.78,.32,-1,1],[.5,.5,-1,3]]},
  {n:'Bliźnięta',ai:{t:4.5,a:.55,pb:1},s:[[.28,.88,0,2,1],[.72,.12,1,2,1],[.72,.76,-1,2],[.28,.24,-1,2],[.13,.5,-1,1],[.87,.5,-1,1],[.5,.6,-1,1],[.5,.4,-1,1],[.5,.9,-1,1],[.5,.1,-1,1]]},
@@ -373,7 +381,7 @@ function sprite(hex,size,core){
   else{gr.addColorStop(0,`rgba(${r},${gg},${b},.5)`);gr.addColorStop(.3,`rgba(${r},${gg},${b},.16)`);gr.addColorStop(1,`rgba(${r},${gg},${b},0)`)}
   g.fillStyle=gr;g.fillRect(0,0,size,size);return c}
 let USPR=[];const SELSPR=sprite('#ffffff',40,true);const GLOW={};GLOW[NEU]=sprite(NEU,160,false);
-function rebuildColors(){const p=PAL[SET.color]||PAL[0];COL=[p,...PAL.filter(c=>c!==p)].slice(0,4);
+function rebuildColors(){const p=PAL[SET.color]||PAL[0];COL=[p,...PAL.filter(c=>c!==p)];
   USPR=COL.map(c=>sprite(c,40,true));COL.forEach(c=>{if(!GLOW[c])GLOW[c]=sprite(c,160,false)});
   document.documentElement.style.setProperty('--you',p)}
 rebuildColors();
@@ -437,12 +445,14 @@ function setMute(m){muted=m;store.set('lumen-mute',m);$('bSound').textContent=m?
 // ---------- game state ----------
 let G=null,mode='menu',fracI=0,speed=1;
 function newGame(def,idx,demo){
+  const sc=def.wsc||1;if(WX!==500*sc){WX=500*sc;WY=860*sc;layout()}
   const suns=def.s.map((d,i)=>{const m=d[3];const owner=d[2];const lvl=owner>=0?(owner>0&&def.aiStart?def.aiStart:(d[4]||1)):0;
     return{i,x:d[0]*WX,y:d[1]*WY,m,r:12+7*m,owner,level:lvl,hp:owner>=0?hpMax(lvl):0,cap:0,capO:-1,up:0,pulse:0}});
   const owners=[...new Set(suns.filter(s=>s.owner>=0).map(s=>s.owner))];
   G={def,idx,demo,suns,units:[],sparks:[],owners,t:0,beatT:0,beatN:0,aiT:{},checkT:0,over:false,paused:false,
-     sel:new Set(),pop:[0,0,0,0],noSunT:{},hintStep:def.hint&&SET.hints&&!demo?0:-1,hintT:0,demoEnd:0};
-  const df=demo?DIFF[1]:DIFF[SET.diff];G.ai={t:def.ai.t*df.t,a:Math.min(.97,def.ai.a*df.a),pb:def.ai.pb*df.pb};
+     sel:new Set(),pop:[0,0,0,0,0,0],noSunT:{},hintStep:def.hint&&SET.hints&&!demo?0:-1,hintT:0,demoEnd:0};
+  G.coop=!!def.coop;G.team=G.coop?[0,0,1,1,1,1,1,1]:[0,1,2,3,4,5,6,7];
+  const df=demo?DIFF[1]:DIFF[def.diff!=null?def.diff:SET.diff];G.ai={t:def.ai.t*df.t,a:Math.min(.97,def.ai.a*df.a),pb:def.ai.pb*df.pb};
   owners.forEach(o=>{if(o>0)G.aiT[o]=2+Math.random()*2});
   suns.forEach(s=>{if(s.owner>=0)for(let k=0;k<(def.u||20);k++)spawn(s,s.owner)});
 }
@@ -464,10 +474,13 @@ function arrive(u,s){
       if(s.up>=upCost(s.level)){s.level++;s.up=0;s.hp=hpMax(s.level);s.pulse=1.8;if(o===ME&&!G.demo)SFX.upgrade();netEv(['u',o]);burst(s.x,s.y,o,26)}
       return}
     u.st=0;u.h=s.i;u.cmd=false;u.t=-1;return}
+  if(s.owner>=0&&G.team[s.owner]===G.team[o]){
+    if(s.hp<hpMax(s.level)){s.hp++;u.dead=true;return}
+    u.st=2;u.t=-1;u.cmd=false;u.h=-1;const a=Math.random()*6.283;u.tx=s.x+Math.cos(a)*(s.r+16);u.ty=s.y+Math.sin(a)*(s.r+16);return}
   if(s.owner<0){
-    if(s.capO===-1||s.capO===o){s.capO=o;s.cap++;
-      if(s.cap>=capCost(s)){s.owner=o;s.level=1;s.hp=hpMax(1);s.cap=0;s.capO=-1;s.up=0;s.pulse=1.8;burst(s.x,s.y,o,30);
-        if(!G.demo&&o===ME)SFX.capture();netEv(['c',o])}}
+    if(s.capO===-1||s.capO===o||G.team[s.capO]===G.team[o]){if(s.capO===-1)s.capO=o;s.cap++;
+      if(s.cap>=capCost(s)){const c=s.capO;s.owner=c;s.level=1;s.hp=hpMax(1);s.cap=0;s.capO=-1;s.up=0;s.pulse=1.8;burst(s.x,s.y,c,30);
+        if(!G.demo&&c===ME)SFX.capture();netEv(['c',c])}}
     else{s.cap--;if(s.cap<=0){s.cap=0;s.capO=-1}}
     u.dead=true;return}
   s.hp--;u.dead=true;
@@ -502,8 +515,8 @@ function aiThink(o){
         if(t.hp<hpMax(t.level)){need=hpMax(t.level)-t.hp;val=2.6}
         else if(t.level<t.m){need=upCost(t.level)-t.up;val=2.1}
         else continue;margin=0;
-      }else if(t.owner===o)continue;
-      else if(t.owner<0){need=capCost(t)+(t.capO===o?-t.cap:t.cap);val=1+t.m*.7;margin=3}
+      }else if(t.owner===o||(t.owner>=0&&G.team[t.owner]===G.team[o]))continue;
+      else if(t.owner<0){need=capCost(t)+((t.capO>=0&&G.team[t.capO]===G.team[o])?-t.cap:t.cap);val=1+t.m*.7;margin=3}
       else{need=t.hp+(def[t.i]||0)*1.15;val=1.2+t.level*.6+t.m*.3;if(t.owner===0||(G.online&&t.owner===1))val*=p.pb;margin=need*.3+5}
       if(n-reserve<need+margin)continue;
       const dist=Math.hypot(t.x-s.x,t.y-s.y);
@@ -529,7 +542,7 @@ function update(dt){
   // beat
   g.beatT+=dt;
   if(g.beatT>=BEAT){g.beatT-=BEAT;g.beatN++;
-    g.pop=[0,0,0,0];for(const u of g.units)if(!u.dead)g.pop[u.o]++;
+    g.pop=[0,0,0,0,0,0];for(const u of g.units)if(!u.dead)g.pop[u.o]++;
     for(const s of g.suns)if(s.owner>=0&&s.level>0){s.pulse=1;for(let k=0;k<s.level;k++)if(g.pop[s.owner]<capN()){spawn(s,s.owner);g.pop[s.owner]++}}
     // homeless decay
     for(const o of g.owners){if(g.suns.some(s=>s.owner===o))continue;
@@ -559,7 +572,7 @@ function update(dt){
   let playerHit=false;
   for(let i=0;i<U.length;i++){const u=U[i];if(u.dead)continue;const cx=(u.x/8|0)+200,cy=(u.y/8|0)+200;
     outer:for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=1;oy++){const c=grid.get((cx+ox)*4096+cy+oy);if(!c)continue;
-      for(const j of c){if(j<=i)continue;const w=U[j];if(w.dead||w.o===u.o)continue;
+      for(const j of c){if(j<=i)continue;const w=U[j];if(w.dead||g.team[w.o]===g.team[u.o])continue;
         const dx=w.x-u.x,dy=w.y-u.y;if(dx*dx+dy*dy<CR2){u.dead=w.dead=true;
           if(SET.quality&&g.sparks.length<500){g.sparks.push({x:u.x,y:u.y,vx:rand(-40,40),vy:rand(-40,40),l:1,d:rand(.5,.9),o:u.o},{x:w.x,y:w.y,vx:rand(-40,40),vy:rand(-40,40),l:1,d:rand(.5,.9),o:w.o})}
           if(u.o===ME||w.o===ME)playerHit=true;if(G.online&&(u.o===1||w.o===1))netEv(['t']);if(G.online)netEv(['b',u.x|0,u.y|0,u.o,1]);break outer}}}}
@@ -571,8 +584,9 @@ function update(dt){
   // end check
   g.checkT+=dt;if(g.checkT>.5){g.checkT=0;
     const alive=new Set();for(const s of g.suns)if(s.owner>=0)alive.add(s.owner);for(const u of g.units)alive.add(u.o);
-    g.pop=[0,0,0,0];for(const u of g.units)g.pop[u.o]++;
+    g.pop=[0,0,0,0,0,0];for(const u of g.units)g.pop[u.o]++;
     if(g.demo){if(alive.size<=1&&!g.demoEnd)g.demoEnd=g.t+3;if(g.demoEnd&&g.t>g.demoEnd)newGame(DEMO,-1,true)}
+    else if(!g.over&&g.online&&g.coop){const hum=alive.has(0)||alive.has(1),bots=[...alive].some(o=>o>=2);if(!hum)hostOver(101);else if(!bots)hostOver(100)}
     else if(!g.over&&g.online){let w=null;if(!alive.has(0)&&!alive.has(1))w=alive.size?[...alive][0]:-1;else if(alive.size===1)w=[...alive][0];if(w!==null)hostOver(w)}
     else if(!g.over){if(!alive.has(0))finish(false);else if(alive.size===1)finish(true)}
     if(!g.demo)updatePop();
@@ -728,7 +742,7 @@ function startGame(def,i){initAudio();if(NET.role)leaveNet();ME=0;$('bSpeed').hi
 function finish(won){G.over=true;hintEl.classList.remove('on');const i=G.idx;
   setTimeout(()=>{
     if(won&&i<0){SFX.win();$('overTitle').textContent='Galaktyka jest twoja';$('overSub').textContent=`Czas: ${fmt(G.t)}`;
-      const r=G.def.random;$('bNext').textContent='Nowa galaktyka';$('bNext').onclick=()=>startGame(genRandom(r.e,r.s),-2)}
+      const r=G.def.random;$('bNext').textContent='Nowa galaktyka';$('bNext').onclick=()=>startGame(genRandom(r.e,r.s,r.c),-2)}
     else if(won){SFX.win();const best=progress.best[i];if(best==null||G.t<best)progress.best[i]=G.t;
       progress.unlocked=Math.max(progress.unlocked,Math.min(LEVELS.length,i+2));store.set('lumen-progress',progress);
       $('overTitle').textContent=i===LEVELS.length-1?'Cała galaktyka świeci twoim światłem':'Galaktyka jest twoja';
@@ -844,7 +858,10 @@ function onClose(){if(!NET.role)return;const was=NET.role;
     $('bNext').hidden=true;$('bOverLevels').textContent='Wyjdź';hintEl.classList.remove('on');show('over')}
   else if(!$('online').hidden){onNote('Połączenie przerwane.');if(was==='host'){$('bHostStart').disabled=true;$('hostStatus').textContent='Czekam, aż kolega wpisze kod…';NET.conn=null;return}onPanel('main')}
   leaveNet()}
-function defFromSel(){const v=$('mapSel').value;if(v[0]==='L'){const i=+v.slice(1);return{def:JSON.parse(JSON.stringify(LEVELS[i])),idx:i}}
+function updMpRows(){const c=SET.mpMode===1;$('rowMap').hidden=c;$('rowBots').hidden=!c;$('rowSize').hidden=!c;$('rowDiff').hidden=!c}
+bindSeg('mpMode','mpMode',updMpRows);bindSeg('mpBots','mpBots');bindSeg('mpSize','mpSize');bindSeg('mpDiff','mpDiff');updMpRows();
+function defFromSel(){if(SET.mpMode===1){const d=genRandom(SET.mpBots,SET.mpSize,true);d.diff=SET.mpDiff;d.n=`Razem przeciw botom (${SET.mpBots})`;return{def:d,idx:-2}}
+  const v=$('mapSel').value;if(v[0]==='L'){const i=+v.slice(1);return{def:JSON.parse(JSON.stringify(LEVELS[i])),idx:i}}
   const k=+v.slice(1);return{def:genRandom(k,1),idx:-2}}
 function hostStart(def,idx){netSend({t:'start',def,idx});startOnline(def,idx)}
 $('bOnline').addEventListener('click',()=>{initAudio();onPanel('main');onNote('');show('online')});
@@ -859,11 +876,11 @@ function startOnline(def,idx){initAudio();ME=NET.role==='guest'?1:0;newGame(def,
   if(ME===1){G.client=true;G.units=[];NET.map=new Map();NET.lastSnap=performance.now()}NET.events=[];NET.sendT=0;
   mode='play';show(null);$('hud').hidden=false;$('bSpeed').hidden=true;$('bNext').hidden=false;
   $('lvlName').textContent='Online: '+(idx>=0?`${idx+1}. ${def.n}`:def.n);updatePop();updateSelChip();
-  hintEl.innerHTML=`Twój kolor: <b style="color:${COL[ME]};font-size:20px">●</b> ${ME===0?'Zaczynasz na swojej gwieździe.':'Kolega gra drugim kolorem.'}`;hintEl.classList.add('on');
+  hintEl.innerHTML=`Twój kolor: <b style="color:${COL[ME]};font-size:20px">●</b> ${G.coop?`Kolega: <b style="color:${COL[ME===0?1:0]};font-size:20px">●</b> Gracie razem przeciw botom.`:(ME===0?'Zaczynasz na swojej gwieździe.':'Kolega gra drugim kolorem.')}`;hintEl.classList.add('on');
   setTimeout(()=>{if(G&&G.online&&!G.over)hintEl.classList.remove('on')},4500)}
 function sendSnap(){const g=G;const n=g.units.length,buf=new ArrayBuffer(n*8),dv=new DataView(buf);
   for(let i=0;i<n;i++){const u=g.units[i],o=i*8;dv.setUint16(o,u.id);dv.setUint16(o+2,Math.max(0,Math.min(65535,Math.round((u.x+200)*8))));dv.setUint16(o+4,Math.max(0,Math.min(65535,Math.round((u.y+200)*8))));
-    dv.setUint8(o+6,(u.o&3)|((u.st&3)<<2));dv.setUint8(o+7,u.h+1)}
+    dv.setUint8(o+6,(u.o&7)|((u.st&3)<<3));dv.setUint8(o+7,u.h+1)}
   const S=[];for(const s of g.suns)S.push(s.owner,s.level,s.hp|0,s.cap,s.capO,s.up,Math.round(s.pulse*50));
   netSend({t:'s',s:S,u:buf,e:NET.events.splice(0)})}
 function onData(d){if(!d||typeof d!=='object')return;
@@ -880,9 +897,9 @@ function applySnap(d){const g=G;NET.lastSnap=performance.now();const S=d.s||[];
   let buf=d.u;if(buf&&!(buf instanceof ArrayBuffer)&&buf.buffer)buf=buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength);
   const list=[];if(buf){const dv=new DataView(buf),n=buf.byteLength/8|0;const gen=(NET.gen=(NET.gen||0)+1);
     for(let i=0;i<n;i++){const o=i*8,id=dv.getUint16(o),x=dv.getUint16(o+2)/8-200,y=dv.getUint16(o+4)/8-200,b=dv.getUint8(o+6),h=dv.getUint8(o+7)-1;
-      let u=NET.map.get(id);if(!u){u={id,x,y,tx:x,ty:y,sel:false};NET.map.set(id,u)}u.tx=x;u.ty=y;u.o=b&3;u.st=b>>2&3;u.h=h;u.g=gen;list.push(u)}
+      let u=NET.map.get(id);if(!u){u={id,x,y,tx:x,ty:y,sel:false};NET.map.set(id,u)}u.tx=x;u.ty=y;u.o=b&7;u.st=b>>3&3;u.h=h;u.g=gen;list.push(u)}
     for(const [id,u] of NET.map)if(u.g!==gen)NET.map.delete(id)}
-  g.units=list;g.pop=[0,0,0,0];for(const u of list)g.pop[u.o]++;
+  g.units=list;g.pop=[0,0,0,0,0,0];for(const u of list)g.pop[u.o]++;
   for(const e of d.e||[]){const k=e[0];if(k==='b')burst(e[1],e[2],e[3],e[4]);else if(k==='c'){if(e[1]===ME)SFX.capture()}else if(k==='u'){if(e[1]===ME)SFX.upgrade()}
     else if(k==='l'){if(e[1]===ME)SFX.lost();else if(e[2]===ME)SFX.enemyLost()}else if(k==='t')SFX.tink()}
   if((NET.popT=(NET.popT||0)+1)%3===0){updatePop();updateSelChip()}}
@@ -894,9 +911,10 @@ function clientTick(dt){const g=G;g.t+=dt;const f=Math.min(1,dt*12);for(const u 
     else if(!late&&NET.lateShown){NET.lateShown=false;hintEl.classList.remove('on')}}}
 function hostOver(w){G.over=true;netSend({t:'over',w});showOnlineOver(w)}
 function showOnlineOver(w){G.over=true;hintEl.classList.remove('on');setTimeout(()=>{
-  const other=ME===0?1:0;if(w===ME){SFX.win();$('overTitle').textContent='Wygrana!'}else{SFX.lose();$('overTitle').textContent=w===other?'Kolega wygrał':'Komputer was pokonał'}
+  const other=ME===0?1:0;if(w===100){SFX.win();$('overTitle').textContent='Wygraliście razem!'}else if(w===101){SFX.lose();$('overTitle').textContent='Boty wygrały tym razem'}
+  else if(w===ME){SFX.win();$('overTitle').textContent='Wygrana!'}else{SFX.lose();$('overTitle').textContent=w===other?'Kolega wygrał':'Komputer was pokonał'}
   $('overSub').textContent=`Czas gry: ${fmt(G.t)}`;$('bOverLevels').textContent='Wyjdź';$('bNext').hidden=false;
-  if(NET.role==='host'){$('bNext').disabled=false;$('bNext').textContent='Rewanż';const d=G.def,i=G.idx;$('bNext').onclick=()=>{if(NET.conn&&NET.conn.open)hostStart(d.random?genRandom(d.random.e,d.random.s):d,i)}}
+  if(NET.role==='host'){$('bNext').disabled=false;$('bNext').textContent='Rewanż';const d=G.def,i=G.idx;$('bNext').onclick=()=>{if(NET.conn&&NET.conn.open)hostStart(d.random?Object.assign(genRandom(d.random.e,d.random.s,d.random.c),{diff:d.diff}):d,i)}}
   else{$('bNext').disabled=true;$('bNext').textContent='Czekam na rewanż…';$('bNext').onclick=null}
   show('over')},900)}
 
